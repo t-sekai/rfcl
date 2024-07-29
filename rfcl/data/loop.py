@@ -160,6 +160,12 @@ class GymLoop(BaseEnvLoop):
                 truncations,
                 infos,
             ) = self.env.step(actions)
+
+            # single bool bug with truncations
+            if type(truncations) != type(terminations):
+                truncations = torch.tensor(truncations)
+                truncations = truncations.expand(terminations.shape).to(terminations.device)
+
             ep_lengths = ep_lengths + 1
             if self.is_torch_gpu_env:
                 ep_returns = ep_returns + rewards.cpu().numpy()

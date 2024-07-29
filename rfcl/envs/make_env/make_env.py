@@ -21,6 +21,7 @@ from rfcl.envs.wrappers.common import (
     SparseRewardWrapper,
 )
 
+from mani_skill.vector.wrappers.gymnasium import ManiSkillVectorEnv
 
 THIS_FILE = "rfcl/envs/make_env/make_env.py"
 
@@ -177,6 +178,7 @@ def make_env(
             )
         else:
             env = gymnasium.make(env_id, num_envs=num_envs, **env_kwargs)
+            envs = ManiSkillVectorEnv(envs, num_envs, ignore_terminations=True, **env_kwargs)
 
         obs_space = env.single_observation_space
         act_space = env.single_action_space
