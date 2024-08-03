@@ -115,8 +115,6 @@ def make_env(
             env_action_scale = action_scale
         rescale_action_wrapper = lambda x: gymnasium.wrappers.RescaleAction(x, -env_action_scale, env_action_scale)
         clip_wrapper = lambda x: gymnasium.wrappers.ClipAction(x)
-        import pdb
-        pdb.set_trace()
         if env_kwargs['reward_mode'] == 'sparse':
             wrappers = [ContinuousTaskWrapper, SparseRewardWrapper, EpisodeStatsWrapper, rescale_action_wrapper, clip_wrapper, *wrappers]
         else:
