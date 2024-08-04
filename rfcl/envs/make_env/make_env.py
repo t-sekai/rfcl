@@ -181,7 +181,7 @@ def make_env(
             )
         else:
             env = gymnasium.make(env_id, num_envs=num_envs, **env_kwargs)
-            envs = ManiSkillVectorEnv(env, num_envs, ignore_terminations=True, **env_kwargs)
+            env = ManiSkillVectorEnv(env, num_envs, ignore_terminations=True, **env_kwargs)
 
         obs_space = env.single_observation_space
         act_space = env.single_action_space
