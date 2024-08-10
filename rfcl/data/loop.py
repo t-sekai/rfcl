@@ -228,7 +228,7 @@ class GymLoop(BaseEnvLoop):
             
             if "final_info" in infos:
                 if self.is_torch_gpu_env:
-                    data["final_info"] = tools.to_numpy(infos["final_info"])
+                    data["final_info"].append(tools.to_numpy(infos["final_info"]))
                 else:
                     for info, keep in zip(infos["final_info"], infos["_final_info"]):
                         if keep:

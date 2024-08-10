@@ -19,9 +19,15 @@ from rfcl.envs.wrappers.common import (
     ContinuousTaskWrapper,
     EpisodeStatsWrapper,
     SparseRewardWrapper,
+    ClipActionWrapper,
+    RescaleActionWrapper
 )
 
-from mani_skill.vector.wrappers.gymnasium import ManiSkillVectorEnv
+try:
+    from mani_skill.utils.wrappers import RecordEpisode as RecordEpisodeWrapper
+    from mani_skill.vector.wrappers.gymnasium import ManiSkillVectorEnv
+except ImportError:
+    pass
 
 THIS_FILE = "rfcl/envs/make_env/make_env.py"
 
@@ -113,12 +119,22 @@ def make_env(
         if action_scale is not None:
             action_scale = np.array(action_scale)
             env_action_scale = action_scale
-        rescale_action_wrapper = lambda x: gymnasium.wrappers.RescaleAction(x, -env_action_scale, env_action_scale)
-        clip_wrapper = lambda x: gymnasium.wrappers.ClipAction(x)
-        if env_kwargs['reward_mode'] == 'sparse':
-            wrappers = [ContinuousTaskWrapper, SparseRewardWrapper, EpisodeStatsWrapper, rescale_action_wrapper, clip_wrapper, *wrappers]
+        if env_type == "gym:cpu":
+            clip_wrapper = lambda x: gymnasium.wrappers.ClipAction(x)
+            rescale_action_wrapper = lambda x: gymnasium.wrappers.RescaleAction(x, -env_action_scale, env_action_scale)
         else:
-            wrappers = [ContinuousTaskWrapper, EpisodeStatsWrapper, rescale_action_wrapper, clip_wrapper, *wrappers]
+            clip_wrapper = lambda x: ClipActionWrapper(x)
+            rescale_action_wrapper = lambda x: RescaleActionWrapper(x, -env_action_scale, env_action_scale)
+        if env_kwargs['reward_mode'] == 'sparse':
+            wrappers = [SparseRewardWrapper, EpisodeStatsWrapper, rescale_action_wrapper, clip_wrapper, *wrappers]
+        else:
+            wrappers = [EpisodeStatsWrapper, rescale_action_wrapper, clip_wrapper, *wrappers]
+        
+        if env_type == "gym:cpu":
+            wrappers = [ContinuousTaskWrapper, *wrappers]
+        else:
+            pass
+
         if _mani_skill3.is_mani_skill3_env(env_id):
             env_factory = _mani_skill3.env_factory
             context = "forkserver"  # currently ms3 does not work with fork
@@ -181,7 +197,18 @@ def make_env(
             )
         else:
             env = gymnasium.make(env_id, num_envs=num_envs, **env_kwargs)
-            env = ManiSkillVectorEnv(env, num_envs, ignore_terminations=True, **env_kwargs)
+            for wrapper in wrappers: # wrappers = [EpisodeStatsWrapper, rescale_action_wrapper, clip_wrapper, *wrappers]
+                env = wrapper(env)
+            if record_video_path is not None: # and (not record_episode_kwargs["record_single"] or idx == 0):
+                env = RecordEpisodeWrapper(
+                    env,
+                    record_video_path,
+                    trajectory_name=f"trajectory",
+                    max_steps_per_video=max_episode_steps,
+                    save_video=record_episode_kwargs["save_video"],
+                    save_trajectory=record_episode_kwargs["save_trajectory"],
+                )#
+            env = ManiSkillVectorEnv(env, num_envs, ignore_terminations=True, max_episode_steps=max_episode_steps, **env_kwargs)
 
         obs_space = env.single_observation_space
         act_space = env.single_action_space

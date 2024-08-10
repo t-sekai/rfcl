@@ -168,5 +168,10 @@ class BasePolicy:
                 if info is not None and "stats" in info:
                     stats_list.append(info["stats"])
         stats = defaultdict(list)
-        {stats[key].append(sub[key]) for sub in stats_list for key in sub}
+        for sub in stats_list:
+            for key in sub:
+                if isinstance(sub[key], list) or isinstance(sub[key], np.ndarray): # likely from torch gpu vector env
+                    stats[key].extend(sub[key])
+                else:
+                    stats[key].append(sub[key])
         return dict(eval_ep_rets=eval_ep_rets, eval_ep_lens=eval_ep_lens, stats=stats)

@@ -293,7 +293,10 @@ class SAC(BasePolicy):
                         if final_info is not None:
                             if "stats" in final_info:
                                 for k in final_info["stats"]:
-                                    train_custom_stats[k].append(final_info["stats"][k])
+                                    if isinstance(final_info["stats"][k], list) or isinstance(final_info["stats"][k], np.ndarray): # likely from torch gpu vector env
+                                        train_custom_stats[k].extend(final_info["stats"][k])
+                                    else:
+                                        train_custom_stats[k].append(final_info["stats"][k])
             self.replay_buffer.store(
                 env_obs=data.env_obs,
                 reward=data.reward,
