@@ -20,7 +20,7 @@ from rfcl.agents.sac.config import SACConfig, TimeStep
 from rfcl.agents.sac.networks import ActorCritic, DiagGaussianActor
 from rfcl.data.buffer import GenericBuffer
 from rfcl.data.loop import DefaultTimeStep, EnvLoopState
-from rfcl.logger import LoggerConfig
+from rfcl.logger import Logger
 from rfcl.utils import tools
 
 
@@ -64,7 +64,7 @@ class SAC(BasePolicy):
         ac: ActorCritic,
         env,
         eval_env=None,
-        logger_cfg: LoggerConfig = None,
+        logger: Logger = None,
         cfg: SACConfig = {},
         offline_buffer=None,
     ):
@@ -72,7 +72,7 @@ class SAC(BasePolicy):
             self.cfg = SACConfig(**cfg)
         else:
             self.cfg = cfg
-        super().__init__(env_type, env, eval_env, cfg.num_envs, cfg.num_eval_envs, logger_cfg)
+        super().__init__(env_type, env, eval_env, cfg.num_envs, cfg.num_eval_envs, logger)
         self.offline_buffer = offline_buffer
         self.state: SACTrainState = SACTrainState(
             ac=ac,
@@ -201,6 +201,7 @@ class SAC(BasePolicy):
                 )
                 self.logger.store(tag="test_stats", **eval_results["stats"])
                 self.logger.log(self.state.total_env_steps)
+                self.logger.log_wandb_video(self.state.total_env_steps)
                 self.logger.reset()
 
             self.logger.store(tag="train", **train_step_metrics.train)

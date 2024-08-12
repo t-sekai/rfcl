@@ -15,16 +15,17 @@ import rfcl.envs.make_env._gymnasium_robotics as _gymnasium_robotics
 import rfcl.envs.make_env._mani_skill2 as _mani_skill2
 import rfcl.envs.make_env._meta_world as _meta_world
 import rfcl.envs.make_env._mani_skill3 as _mani_skill3
+from rfcl.logger import Logger
 from rfcl.envs.wrappers.common import (
     ContinuousTaskWrapper,
     EpisodeStatsWrapper,
     SparseRewardWrapper,
     ClipActionWrapper,
-    RescaleActionWrapper
+    RescaleActionWrapper,
+    RecordEpisodeWrapper
 )
 
 try:
-    from mani_skill.utils.wrappers import RecordEpisode as RecordEpisodeWrapper
     from mani_skill.vector.wrappers.gymnasium import ManiSkillVectorEnv
 except ImportError:
     pass
@@ -49,6 +50,8 @@ class EnvConfig:
     env_kwargs: Dict
     """additional kwargs to pass to the environment constructor"""
     action_scale: Union[Optional[np.ndarray], Optional[List[float]]]
+
+    render_size: int = 512
 
 
 @dataclass
@@ -77,7 +80,7 @@ def wrap_env(env, idx=0, record_video_path=None, wrappers=[], record_episode_kwa
     return env
 
 
-def make_env_from_cfg(cfg: EnvConfig, seed: int = None, video_path: str = None, wrappers=[], record_episode_kwargs=dict()):
+def make_env_from_cfg(cfg: EnvConfig, seed: int = None, video_path: str = None, wrappers=[], record_episode_kwargs=dict(), logger: Logger = None):
     if not isinstance(cfg.env_kwargs, dict):
         cfg.env_kwargs = OmegaConf.to_container(cfg.env_kwargs)
     return make_env(
@@ -91,6 +94,8 @@ def make_env_from_cfg(cfg: EnvConfig, seed: int = None, video_path: str = None, 
         action_scale=cfg.action_scale,
         wrappers=wrappers,
         record_episode_kwargs=record_episode_kwargs,
+        render_size=cfg.render_size,
+        logger=logger,
     )
 
 
@@ -105,11 +110,13 @@ def make_env(
     action_scale: np.ndarray = None,
     wrappers=[],
     record_episode_kwargs=dict(),
+    render_size: int = 512,
+    logger: Logger = None,
 ):
     """
     Utility function to create a jax/non-jax based environment given an env_id
     """
-    default_record_episode_kwargs = dict(save_video=True, save_trajectory=False, record_single=True, info_on_video=True)
+    default_record_episode_kwargs = dict(save_video=True, save_trajectory=False, record_single=True, info_on_video=False)
     record_episode_kwargs = {**default_record_episode_kwargs, **record_episode_kwargs}
     if env_type == "jax":
         raise NotImplementedError()
@@ -191,12 +198,14 @@ def make_env(
                         record_video_path=record_video_path,
                         wrappers=wrappers,
                         record_episode_kwargs=record_episode_kwargs,
+                        render_size=render_size,
+                        logger=logger,
                     )
                     for idx in range(num_envs)
                 ]
             )
         else:
-            env = gymnasium.make(env_id, num_envs=num_envs, **env_kwargs)
+            env = gymnasium.make(env_id, num_envs=num_envs, sensor_configs=dict(width=render_size, height=render_size), **env_kwargs)
             for wrapper in wrappers: # wrappers = [EpisodeStatsWrapper, rescale_action_wrapper, clip_wrapper, *wrappers]
                 env = wrapper(env)
             if record_video_path is not None: # and (not record_episode_kwargs["record_single"] or idx == 0):
@@ -207,6 +216,7 @@ def make_env(
                     max_steps_per_video=max_episode_steps,
                     save_video=record_episode_kwargs["save_video"],
                     save_trajectory=record_episode_kwargs["save_trajectory"],
+                    logger=logger,
                 )#
             env = ManiSkillVectorEnv(env, num_envs, ignore_terminations=True, max_episode_steps=max_episode_steps, **env_kwargs)
 

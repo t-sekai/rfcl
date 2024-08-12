@@ -9,6 +9,9 @@ from typing import Callable, Dict, Union
 import numpy as np
 from omegaconf import OmegaConf
 
+from mani_skill.utils.visualization.misc import (
+    tile_images,
+)
 
 color2num = dict(
     gray=30,
@@ -74,6 +77,7 @@ class Logger:
         cfg: Union[Dict, OmegaConf, None] = {},
         best_stats_cfg: Union[Dict, None] = {},
         save_fn: Callable = None,
+        manager = None,
     ) -> None:
         """
         A logger for logging data points as well as summary statistics.
@@ -166,8 +170,11 @@ class Logger:
         self.best_stats_cfg = best_stats_cfg
         self.save_fn = save_fn
 
+        self.wandb_videos = manager.list()
+        self.lock = manager.Lock()
+
     @classmethod
-    def create_from_cfg(cls, cfg: LoggerConfig):
+    def create_from_cfg(cls, cfg: LoggerConfig, manager):
         return cls(
             workspace=cfg.workspace,
             exp_name=cfg.exp_name,
@@ -179,6 +186,7 @@ class Logger:
             cfg=cfg.cfg,
             best_stats_cfg=cfg.best_stats_cfg,
             save_fn=cfg.save_fn,
+            manager=manager,
         )
 
     def init_tb(self):
@@ -320,6 +328,26 @@ class Logger:
                     self.wandb_run.log(data=key_vals, step=self.start_step + step)
 
         return self.stats
+    
+    def add_wandb_video(self, frames: np.ndarray): # (num_envs, num_frames, h, w, 3)
+        with self.lock:
+            if self.wandb and len(frames) > 0:
+                self.wandb_videos.extend(frames)
+            
+
+    def log_wandb_video(self, step, fps=15, key='videos/eval_video'):
+        with self.lock:
+            if self.wandb and len(self.wandb_videos) > 0 :
+                nrows = int(np.sqrt(len(self.wandb_videos)))
+                wandb_video = np.stack(self.wandb_videos)
+                wandb_video = wandb_video.transpose(1, 0, 2, 3, 4)
+                wandb_video = [tile_images(rgbs, nrows=nrows) for rgbs in wandb_video]
+                wandb_video = np.stack(wandb_video)
+                self.wandb_videos[:] = []
+                return self.wandb_run.log(
+                    {key: wb.Video(wandb_video.transpose(0, 3, 1, 2), fps=fps, format='mp4')}, step=step
+                )
+            
 
     def reset(self):
         """
