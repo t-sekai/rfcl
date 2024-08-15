@@ -91,9 +91,13 @@ class SACConfig:
     """
     Every eval_freq interactions an evaluation is performed
     """
-    eval_steps: Optional[int] = 1000
+    eval_steps: Optional[int] = None
     """
     Number of evaluation steps taken for each eval environment
+    """
+    eval_episodes: Optional[int] = 4
+    """
+    Number of evaluation episodes taken for each eval environment
     """
     num_eval_envs: Optional[int] = 4
     """
