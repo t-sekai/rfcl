@@ -22,7 +22,8 @@ from rfcl.envs.wrappers.common import (
     SparseRewardWrapper,
     ClipActionWrapper,
     RescaleActionWrapper,
-    RecordEpisodeWrapper
+    RecordEpisodeWrapper,
+    PixelWrapper,
 )
 
 try:
@@ -122,6 +123,15 @@ def make_env(
         raise NotImplementedError()
     else:
         context = "fork"
+        # Observation mode wrapper
+        if env_kwargs['obs_mode'] == 'rgb':
+            pixel_wrapper = lambda x: PixelWrapper(x, render_size)
+            wrappers = [pixel_wrapper, *wrappers]
+        elif env_kwargs['obs_mode'] == 'pointcloud':
+            raise Exception("Point cloud observation is not supported just yet.")
+        else:
+            pass
+        # Action scale wrappers
         env_action_scale = 1
         if action_scale is not None:
             action_scale = np.array(action_scale)
@@ -132,11 +142,12 @@ def make_env(
         else:
             clip_wrapper = lambda x: ClipActionWrapper(x)
             rescale_action_wrapper = lambda x: RescaleActionWrapper(x, -env_action_scale, env_action_scale)
+        # Reward mode wrapper
         if env_kwargs['reward_mode'] == 'sparse':
             wrappers = [SparseRewardWrapper, EpisodeStatsWrapper, rescale_action_wrapper, clip_wrapper, *wrappers]
         else:
             wrappers = [EpisodeStatsWrapper, rescale_action_wrapper, clip_wrapper, *wrappers]
-        
+        # Continuous task wrapper    
         if env_type == "gym:cpu":
             wrappers = [ContinuousTaskWrapper, *wrappers]
         else:

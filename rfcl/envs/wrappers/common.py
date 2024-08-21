@@ -277,3 +277,28 @@ class RecordEpisodeWrapper(RecordEpisode):
         self._video_steps = 0
         self.render_images = []
         self.untiled_render_images = []
+
+class PixelWrapper(gym.Wrapper):
+    """
+    Wrapper for pixel observations. Works with Maniskill vectorized environments
+    """
+
+    def __init__(self, env, render_size):
+        super().__init__(env)
+        # self.observation_space = gym.spaces.Box(
+        #     low=0, high=255, shape=(env.unwrapped.num_envs, 3, render_size, render_size), dtype=np.uint8
+        # )
+        self.single_observation_space = gym.spaces.Box(
+            low=0, high=255, shape=(render_size, render_size, 3), dtype=np.uint8
+        )
+
+    def _get_obs(self, obs):
+        return obs['sensor_data']['base_camera']['rgb']
+
+    def reset(self, *, seed=None, options=None):
+        obs, info = super().reset(seed=seed, options=options)
+        return self._get_obs(obs), info
+
+    def step(self, action):
+        obs, reward, terminated, truncated, info = super().step(action)
+        return self._get_obs(obs), reward, terminated, truncated, info

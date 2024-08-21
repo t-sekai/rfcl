@@ -20,6 +20,7 @@ from rfcl.agents.sac.config import SACConfig, TimeStep
 from rfcl.agents.sac.networks import ActorCritic, DiagGaussianActor
 from rfcl.data.buffer import GenericBuffer
 from rfcl.data.loop import DefaultTimeStep, EnvLoopState
+from rfcl.data.augmentations import batched_random_crop
 from rfcl.logger import Logger
 from rfcl.utils import tools
 
@@ -380,9 +381,24 @@ class SAC(BasePolicy):
         def _update(data, batch):
             # for each update, we perform a number of critic updates followed by an actor update depending on actor update frequency
             (ac, critic_update_aux, actor_update_aux, temp_update_aux, rng_key) = data
+            
+            if self.env.unwrapped.obs_mode == 'rgb': # apply data augmentation to rgb observations
+                rng_key, key = jax.random.split(rng_key)
+                env_obs = batched_random_crop(key, batch.env_obs)
+                rng_key, key = jax.random.split(rng_key)
+                next_env_obs = batched_random_crop(key, batch.next_env_obs)
+                batch = batch.replace(env_obs=env_obs,
+                                    next_env_obs=next_env_obs)
 
             mini_batches = jax.tree_util.tree_map(lambda x: jnp.array(jnp.split(x, grad_updates_per_round)), batch)
             (ac, critic_update_aux, rng_key), _ = jax.lax.scan(_critic_updates, (ac, critic_update_aux, rng_key), mini_batches)
+
+            # TODO: Sharing visual encoder weights between actor and critic.
+            # if self.env.unwrapped.obs_mode != 'state': # if for visual rl
+            #     ac.actor.params['params']['visual_encoder'] = ac.critic.params['params']['VmapCritic_0']['visual_encoder']   
+            #     new_actor_params = ac.actor.params.copy(
+            #       add_or_replace={'SharedEncoder': ac.critic.params['SharedEncoder']})
+            #     ac.replace(actor=ac.actor.replace(params=new_actor_params))
 
             rng_key, actor_update_rng_key = jax.random.split(rng_key, 2)
             mini_batch = mini_batch = jax.tree_util.tree_map(lambda x: x[-mini_batch_size:], batch)

@@ -8,6 +8,7 @@ import flax.linen as nn
 from dacite import from_dict
 
 from .mlp import MLP, MLPConfig
+from .conv import Conv, ConvConfig
 from .types import NetworkConfig
 
 
@@ -29,3 +30,7 @@ def build_network_from_cfg(cfg: NetworkConfig):
         cfg.arch_cfg.activation = activation_to_fn(cfg.arch_cfg.activation)
         cfg.arch_cfg.output_activation = activation_to_fn(cfg.arch_cfg.output_activation)
         return MLP(**asdict(cfg.arch_cfg))
+    elif cfg.type == "conv":
+        cfg = from_dict(data_class=ConvConfig, data=asdict(cfg))
+        cfg.arch_cfg.activation = activation_to_fn(cfg.arch_cfg.activation)
+        return Conv(**asdict(cfg.arch_cfg))

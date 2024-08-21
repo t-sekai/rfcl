@@ -42,10 +42,12 @@ class Ensemble(nn.Module):
 
 class Critic(nn.Module):
     feature_extractor: nn.Module
+    visual_encoder: nn.Module = None
 
     @nn.compact
     def __call__(self, obs: Array, acts: Array) -> Array:
-        x = jnp.concatenate([obs, acts], -1)
+        _obs = self.visual_encoder(obs) if self.visual_encoder else obs
+        x = jnp.concatenate([_obs, acts], -1)
         features = self.feature_extractor(x)
         value = nn.Dense(1)(features)
         return jnp.squeeze(value, -1)
@@ -59,7 +61,8 @@ class DiagGaussianActor(nn.Module):
     feature_extractor: nn.Module
     act_dims: int
     output_activation: Callable[[jnp.ndarray], jnp.ndarray] = nn.relu
-
+    visual_encoder: nn.Module = None
+    
     tanh_squash_distribution: bool = True
 
     state_dependent_std: bool = True
@@ -77,6 +80,8 @@ class DiagGaussianActor(nn.Module):
         self.action_head = nn.Dense(self.act_dims, kernel_init=default_init(1))
 
     def __call__(self, x, deterministic=False):
+        x = self.visual_encoder(x) if self.visual_encoder else x
+        #x = jax.lax.stop_gradient(x)
         x = self.feature_extractor(x)
         a = self.action_head(x)
         if not self.tanh_squash_distribution:
@@ -124,6 +129,7 @@ class ActorCritic:
         sample_obs: Array,
         sample_acts: Array,
         actor: DiagGaussianActor = None,
+        critic_visual_encoder: nn.Module = None,
         critic_feature_extractor: nn.Module = None,
         actor_optim: optax.GradientTransformation = optax.adam(3e-4),
         critic_optim: optax.GradientTransformation = optax.adam(3e-4),
@@ -137,7 +143,7 @@ class ActorCritic:
         assert actor is not None
         actor = Model.create(actor, actor_rng_key, sample_obs, actor_optim)
         assert critic_feature_extractor is not None
-        critic_cls = partial(Critic, feature_extractor=critic_feature_extractor)
+        critic_cls = partial(Critic, visual_encoder=critic_visual_encoder, feature_extractor=critic_feature_extractor)
         critic_def = Ensemble(critic_cls, num=num_qs)
         critic_model = Model.create(critic_def, critic_rng_key, [sample_obs, sample_acts], critic_optim)
 
