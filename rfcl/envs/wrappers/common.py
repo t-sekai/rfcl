@@ -285,9 +285,9 @@ class PixelWrapper(gym.Wrapper):
 
     def __init__(self, env, render_size):
         super().__init__(env)
-        # self.observation_space = gym.spaces.Box(
-        #     low=0, high=255, shape=(env.unwrapped.num_envs, 3, render_size, render_size), dtype=np.uint8
-        # )
+        self.observation_space = gym.spaces.Box(
+            low=0, high=255, shape=(render_size, render_size, 3), dtype=np.uint8
+        )
         self.single_observation_space = gym.spaces.Box(
             low=0, high=255, shape=(render_size, render_size, 3), dtype=np.uint8
         )

@@ -62,6 +62,7 @@ class SAC(BasePolicy):
     def __init__(
         self,
         env_type: str,
+        obs_mode: str,
         ac: ActorCritic,
         env,
         eval_env=None,
@@ -99,6 +100,8 @@ class SAC(BasePolicy):
                     maxval=1.0,
                     dtype=float,
                 )
+        
+        self.obs_mode = obs_mode
 
         self.seed_sampler = seed_sampler
 
@@ -381,8 +384,7 @@ class SAC(BasePolicy):
         def _update(data, batch):
             # for each update, we perform a number of critic updates followed by an actor update depending on actor update frequency
             (ac, critic_update_aux, actor_update_aux, temp_update_aux, rng_key) = data
-            
-            if self.env.unwrapped.obs_mode == 'rgb': # apply data augmentation to rgb observations
+            if self.obs_mode == 'rgb': # apply data augmentation to rgb observations
                 rng_key, key = jax.random.split(rng_key)
                 env_obs = batched_random_crop(key, batch.env_obs)
                 rng_key, key = jax.random.split(rng_key)
