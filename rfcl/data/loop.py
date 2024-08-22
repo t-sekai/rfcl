@@ -147,7 +147,10 @@ class GymLoop(BaseEnvLoop):
             rng_key, rng_fn_key = jax.random.split(rng_key)
 
             if self.is_torch_gpu_env:
-                observations = torch_to_jax(observations)
+                try:
+                    observations = torch_to_jax(observations)
+                except:
+                    observations = torch_to_jax(observations.contiguous())
             actions, aux = apply_fn(rng_fn_key, params, observations)
             if self.is_torch_gpu_env:
                 actions = jax_to_torch(actions)
