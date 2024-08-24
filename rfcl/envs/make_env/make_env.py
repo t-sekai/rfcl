@@ -128,6 +128,7 @@ def make_env(
             pixel_wrapper = lambda x: PixelWrapper(x, render_size)
             wrappers = [pixel_wrapper, *wrappers]
         elif env_kwargs['obs_mode'] == 'pointcloud':
+            # TODO: Implement pointcloud wrapper like PixelWrapper to extract pointcloud and qpos data from obs dict
             raise Exception("Point cloud observation is not supported just yet.")
         else:
             pass

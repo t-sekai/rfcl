@@ -9,6 +9,7 @@ from dacite import from_dict
 
 from .mlp import MLP, MLPConfig
 from .conv import Conv, ConvConfig
+from .pointnet_encoder import PointNetEncoder, PointNetEncoderConfig
 from .types import NetworkConfig
 
 
@@ -25,12 +26,16 @@ def activation_to_fn(activation: str) -> Callable:
 
 
 def build_network_from_cfg(cfg: NetworkConfig):
-    if cfg.type == "mlp":
+    if cfg.type == "mlp": # used for feature extractor
         cfg = from_dict(data_class=MLPConfig, data=asdict(cfg))
         cfg.arch_cfg.activation = activation_to_fn(cfg.arch_cfg.activation)
         cfg.arch_cfg.output_activation = activation_to_fn(cfg.arch_cfg.output_activation)
         return MLP(**asdict(cfg.arch_cfg))
-    elif cfg.type == "conv":
+    elif cfg.type == "conv": # used for rgb visual encoder
         cfg = from_dict(data_class=ConvConfig, data=asdict(cfg))
         cfg.arch_cfg.activation = activation_to_fn(cfg.arch_cfg.activation)
         return Conv(**asdict(cfg.arch_cfg))
+    elif cfg.type == "pointnet_encoder": # used for point cloud visual encoder
+        cfg = from_dict(data_class=PointNetEncoderConfig, data=asdict(cfg))
+        cfg.arch_cfg.activation = activation_to_fn(cfg.arch_cfg.activation)
+        return PointNetEncoder(**asdict(cfg.arch_cfg))
