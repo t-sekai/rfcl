@@ -52,7 +52,9 @@ class EnvConfig:
     """additional kwargs to pass to the environment constructor"""
     action_scale: Union[Optional[np.ndarray], Optional[List[float]]]
 
-    render_size: int = 512
+    render_size: int = 84
+
+    num_frames: int = 1
 
 
 @dataclass
@@ -96,6 +98,7 @@ def make_env_from_cfg(cfg: EnvConfig, seed: int = None, video_path: str = None, 
         wrappers=wrappers,
         record_episode_kwargs=record_episode_kwargs,
         render_size=cfg.render_size,
+        num_frames=cfg.num_frames,
         logger=logger,
     )
 
@@ -111,7 +114,8 @@ def make_env(
     action_scale: np.ndarray = None,
     wrappers=[],
     record_episode_kwargs=dict(),
-    render_size: int = 512,
+    render_size: int = 84,
+    num_frames: int = 1,
     logger: Logger = None,
 ):
     """
@@ -125,7 +129,7 @@ def make_env(
         context = "fork"
         # Observation mode wrapper
         if env_kwargs['obs_mode'] == 'rgb':
-            pixel_wrapper = lambda x: PixelWrapper(x, render_size)
+            pixel_wrapper = lambda x: PixelWrapper(x, num_frames)
             wrappers = [pixel_wrapper, *wrappers]
         elif env_kwargs['obs_mode'] == 'pointcloud':
             # TODO: Implement pointcloud wrapper like PixelWrapper to extract pointcloud and qpos data from obs dict

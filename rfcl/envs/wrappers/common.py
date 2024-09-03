@@ -1,3 +1,4 @@
+from collections import deque
 import gymnasium as gym
 from gymnasium.spaces import Box
 from gymnasium.spaces.dict import Dict
@@ -284,23 +285,40 @@ class PixelWrapper(gym.Wrapper):
     Wrapper for pixel observations. Works with Maniskill vectorized environments
     """
 
-    def __init__(self, env, render_size):
+    def __init__(self, env, num_frames=1):
         super().__init__(env)
+        self._vis_shape = self.unwrapped.single_observation_space['sensor_data']['base_camera']['rgb'].shape # (h, w, c)
+        self._qpos_shape = self.unwrapped.single_observation_space['agent']['qpos'].shape # (n)
         self.observation_space = Dict({
-                'vis': env.unwrapped.single_observation_space['sensor_data']['base_camera']['rgb'],
-                'qpos': self.env.unwrapped.single_observation_space['agent']['qpos']
+                'vis': Box(low=0, high=255, shape=(self._vis_shape[0], self._vis_shape[1], self._vis_shape[2] * num_frames), dtype=np.uint8),
+                'qpos': Box(low=-np.inf, high=np.inf, shape=(self._qpos_shape[0] * num_frames,), dtype=np.float32)
             })
         self.single_observation_space = Dict({
-                'vis': self.env.unwrapped.single_observation_space['sensor_data']['base_camera']['rgb'],
-                'qpos': self.env.unwrapped.single_observation_space['agent']['qpos']
+                'vis': Box(low=0, high=255, shape=(self._vis_shape[0], self._vis_shape[1], self._vis_shape[2] * num_frames), dtype=np.uint8),
+                'qpos': Box(low=-np.inf, high=np.inf, shape=(self._qpos_shape[0] * num_frames,), dtype=np.float32)
             })
+        self._num_frames = num_frames
+        self._rgb_stack = torch.zeros((self.num_envs, self._vis_shape[0], self._vis_shape[1], self._vis_shape[2], num_frames)).to(self.env.device)
+        self._qpos_stack = torch.zeros((self.num_envs, self._qpos_shape[0], num_frames)).to(self.env.device)
+        self._stack_idx = 0
 
     def _get_obs(self, obs):
-        return {'vis': obs['sensor_data']['base_camera']['rgb'], 'qpos' : obs['agent']['qpos']}
+        self._rgb_stack[..., self._stack_idx] = obs['sensor_data']['base_camera']['rgb']
+        self._qpos_stack[..., self._stack_idx] = obs['agent']['qpos']
+        self._stack_idx = (self._stack_idx + 1) % self._num_frames
+
+        vis = torch.cat((self._rgb_stack[..., self._stack_idx:],self._rgb_stack[..., :self._stack_idx]), dim=-1)
+        vis = vis.reshape((self.num_envs, self._vis_shape[0], self._vis_shape[1], -1))
+        qpos = torch.cat((self._qpos_stack[..., self._stack_idx:],self._qpos_stack[..., :self._stack_idx]), dim=-1)
+        qpos = qpos.reshape((self.num_envs, -1))
+
+        return {'vis': vis, 'qpos' : qpos}
 
     def reset(self, *, seed=None, options=None):
         obs, info = super().reset(seed=seed, options=options)
-        return self._get_obs(obs), info
+        for _ in range(self._num_frames):
+            obs_frames = self._get_obs(obs)
+        return obs_frames, info
 
     def step(self, action):
         obs, reward, terminated, truncated, info = super().step(action)
