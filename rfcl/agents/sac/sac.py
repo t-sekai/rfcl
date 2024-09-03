@@ -386,9 +386,11 @@ class SAC(BasePolicy):
             (ac, critic_update_aux, actor_update_aux, temp_update_aux, rng_key) = data
             if self.obs_mode == 'rgb': # apply data augmentation to rgb observations
                 rng_key, key = jax.random.split(rng_key)
-                env_obs = batched_random_crop(key, batch.env_obs)
+                env_obs = batch.env_obs
+                env_obs['vis'] = batched_random_crop(key, batch.env_obs['vis'])
                 rng_key, key = jax.random.split(rng_key)
-                next_env_obs = batched_random_crop(key, batch.next_env_obs)
+                next_env_obs = batch.next_env_obs
+                next_env_obs['vis'] = batched_random_crop(key, batch.next_env_obs['vis'])
                 batch = batch.replace(env_obs=env_obs,
                                     next_env_obs=next_env_obs)
 

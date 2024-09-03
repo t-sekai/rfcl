@@ -147,10 +147,16 @@ class GymLoop(BaseEnvLoop):
             rng_key, rng_fn_key = jax.random.split(rng_key)
 
             if self.is_torch_gpu_env:
-                try:
-                    observations = torch_to_jax(observations)
-                except:
-                    observations = torch_to_jax(observations.contiguous())
+                if isinstance(observations, dict): 
+                    try:
+                        observations = {k: torch_to_jax(v) for k, v in observations.items()}
+                    except:
+                        observations = {k: torch_to_jax(v.contiguous()) for k, v in observations.items()}
+                else:
+                    try:
+                        observations = torch_to_jax(observations)
+                    except:
+                        observations = torch_to_jax(observations.contiguous())
             actions, aux = apply_fn(rng_fn_key, params, observations)
             if self.is_torch_gpu_env:
                 actions = jax_to_torch(actions)
@@ -207,9 +213,16 @@ class GymLoop(BaseEnvLoop):
                 )
             else:
                 if self.is_torch_gpu_env:
+                    if isinstance(observations, dict):
+                        _observations = {k: np.array(v) for k, v in observations.items()}
+                        _true_next_observations = {k: v.cpu().numpy() for k, v in true_next_observations.items()}
+                    else:
+                        _observations = np.array(observations)
+                        _true_next_observations = true_next_observations.cpu().numpy()
+
                     rb = dict(
-                        env_obs=np.array(observations),
-                        next_env_obs=true_next_observations.cpu().numpy(),
+                        env_obs=_observations,
+                        next_env_obs= _true_next_observations,
                         action=actions.cpu().numpy(),
                         reward=rewards.cpu().numpy(),
                         ep_ret=ep_returns.copy(),
@@ -252,8 +265,15 @@ class GymLoop(BaseEnvLoop):
         for k in data:
             data[k] = np.stack(data[k])
             if k != "final_info":
-                data[k] = data[k].reshape(self.num_envs, steps_per_env, -1)  # (num_envs, steps, D)
-
+                if isinstance(data[k][0], dict):
+                    keys = data[k][0].keys()
+                    dict_data = dict()
+                    for key in keys:
+                        dict_data[key] = np.array([data[k][i][key] for i in range(steps_per_env)])
+                        dict_data[key] = dict_data[key].reshape(self.num_envs, steps_per_env, -1)  # (num_envs, steps, D)
+                    data[k] = dict_data
+                else:
+                    data[k] = data[k].reshape(self.num_envs, steps_per_env, -1)  # (num_envs, steps, D)
         loop_state = EnvLoopState(env_obs=next_observations, env_state=None, ep_ret=ep_returns, ep_len=ep_lengths)
         return data, loop_state
 

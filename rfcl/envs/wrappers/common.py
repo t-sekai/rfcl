@@ -1,5 +1,6 @@
 import gymnasium as gym
 from gymnasium.spaces import Box
+from gymnasium.spaces.dict import Dict
 from typing import Union
 import torch
 import numpy as np
@@ -285,15 +286,17 @@ class PixelWrapper(gym.Wrapper):
 
     def __init__(self, env, render_size):
         super().__init__(env)
-        self.observation_space = gym.spaces.Box(
-            low=0, high=255, shape=(render_size, render_size, 3), dtype=np.uint8
-        )
-        self.single_observation_space = gym.spaces.Box(
-            low=0, high=255, shape=(render_size, render_size, 3), dtype=np.uint8
-        )
+        self.observation_space = Dict({
+                'vis': env.unwrapped.single_observation_space['sensor_data']['base_camera']['rgb'],
+                'qpos': self.env.unwrapped.single_observation_space['agent']['qpos']
+            })
+        self.single_observation_space = Dict({
+                'vis': self.env.unwrapped.single_observation_space['sensor_data']['base_camera']['rgb'],
+                'qpos': self.env.unwrapped.single_observation_space['agent']['qpos']
+            })
 
     def _get_obs(self, obs):
-        return obs['sensor_data']['base_camera']['rgb']
+        return {'vis': obs['sensor_data']['base_camera']['rgb'], 'qpos' : obs['agent']['qpos']}
 
     def reset(self, *, seed=None, options=None):
         obs, info = super().reset(seed=seed, options=options)

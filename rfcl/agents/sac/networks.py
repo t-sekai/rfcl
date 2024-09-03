@@ -46,8 +46,10 @@ class Critic(nn.Module):
 
     @nn.compact
     def __call__(self, obs: Array, acts: Array) -> Array:
-        _obs = self.visual_encoder(obs) if self.visual_encoder else obs
-        x = jnp.concatenate([_obs, acts], -1)
+        if self.visual_encoder: # visual rl inputs
+            visual_feat = self.visual_encoder(obs['vis'])
+            obs = jnp.hstack((visual_feat, obs['qpos']))
+        x = jnp.concatenate([obs, acts], -1)
         features = self.feature_extractor(x)
         value = nn.Dense(1)(features)
         return jnp.squeeze(value, -1)
@@ -80,7 +82,9 @@ class DiagGaussianActor(nn.Module):
         self.action_head = nn.Dense(self.act_dims, kernel_init=default_init(1))
 
     def __call__(self, x, deterministic=False):
-        x = self.visual_encoder(x) if self.visual_encoder else x
+        if self.visual_encoder: # visual rl inputs
+            visual_feat = self.visual_encoder(x['vis'])
+            x = jnp.hstack((visual_feat, x['qpos']))
         #x = jax.lax.stop_gradient(x)
         x = self.feature_extractor(x)
         a = self.action_head(x)
